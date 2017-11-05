@@ -122,3 +122,54 @@ calcErrorDivergence = function(dataset, gr, trialsPer, targ) {
   return(list(indivs = df, errDiv = qerr))
   
 }
+
+
+haloThreshold = function(gr, thresh, trialsPer, targ) {
+  
+  # initialize
+  lip = list()
+  grel = as_edgelist(gr)
+  deg.gr = degree(gr)
+  deg.df = data.frame(name = as.numeric(names(deg.gr)), deg = deg.gr)
+  
+  for (i in thresh) {
+    
+    for (trial in 1:trialsPer) {
+      
+      e.l = matrix(nrow = 0, ncol = 2)
+      
+      # set initial seed and begin snowball
+      sn = sample(V(gr)$name, 1)
+      e.l = stepOut(grel, e.l, sn)
+      e.l$halo = e.l$halo[e.l$halo != sn]
+      
+      while (length(unique(array(e.l$g))) < targ) {
+        # if the halo exists, and its mean degree is less than the threshold, 
+        # then step out
+        if (length(e.l$halo) & mean(deg.gr[as.character(e.l$halo)]) < i) {
+          e.l = stepOut(grel, e.l$g, e.l$halo)
+        # else, begin a new seed by sampling from the set of partially/fully unsampled nodes
+        } else {
+          incompl = merge(deg.df, data.frame(table(e.l$g)), by.x = 'name', by.y = 'Var1', all = TRUE)
+          sn = as.numeric(sample(incompl$name[incompl$deg != incompl$Freq | is.na(incompl$Freq)], 1))
+          e.l = stepOut(grel, e.l$g, sn)
+          e.l$halo = e.l$halo[e.l$halo != sn]
+        }
+      }
+      
+      # if target exceeded, remove nodes until sample is appropriate size
+      toRm = sample(e.l$halo, length(unique(array(e.l$g))) - targ)
+      e.l$g = e.l$g[!(e.l$g[,1] %in% toRm | e.l$g[,2] %in% toRm),]
+      
+      deg = table(e.l$g)
+      
+      thIdx = which(thresh == i)
+      lip[[(thIdx-1)*trialsPer + trial]] = list(kSamp = as.numeric(deg), 
+                                                trueDeg = as.numeric(deg.gr[names(deg)]))
+      
+    }
+  }
+  
+  return(lip)
+  
+}
