@@ -116,9 +116,20 @@ haloThreshSamps = haloThreshSamps %>%
 
 # save(haloThreshSamps, file = "haloThreshSampleData.RData")
 
+haloThreshVar = haloThreshSamps %>%
+  group_by(gr, th) %>%
+  summarise(sdInMean = sd(mean))
+
 plot(errMean ~ jitter(th), haloThreshSamps,
      xlab = "Mean halo degree threshold (jittered)",
-     ylab = "Mean smaple degree - true mean")
+     ylab = "Mean sample degree - true mean",
+     main = "Bias in sample degree with\n halo-degree threshold")
 haloThreshloess = loess(errMean ~ th, haloThreshSamps)
 points(thresh, unique(haloThreshloess$fitted), type = 'l', col = 'red')
+
+plot(sdInMean ~ th, haloThreshVar,
+     xlab = "Mean halo degree threshold",
+     ylab = "Std. dev in mean degree estimate",
+     main = "Variance in sample degree with\n halo-degree threshold")
+for (j in 1:10) with(haloThreshVar[haloThreshVar$gr %in% j,], lines(th, sdInMean, col = 'gray66'))
 
