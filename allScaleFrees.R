@@ -89,4 +89,36 @@ for (i in 1:4) {
     
 }
 
-# yea boy
+#### Begin heuristics
+
+## halo degree heuristic
+
+trialsPer = 50
+thresh = (3:7)/10
+
+for (x in 1:10) {
+
+  assign(paste0("samp",x), haloThreshold(graphs[[x]], thresh, trialsPer, 150))
+  
+  assign(paste0("sampDf",x), data.frame(gr = x, th = rep(thresh, each = trialsPer),
+                                        mean = sapply(get(paste0("samp",x)),
+                                                      function(x) mean(x$kSamp)),
+                                        sd = sapply(get(paste0("samp",x)),
+                                                    function(x) sd(x$kSamp))))
+  
+}
+
+haloThreshSamps = bind_rows(mget(grep("sampDf", ls(), value = TRUE)))
+trueMean = data.frame(gr = 1:10, trueMean = sapply(graphs, function(x) mean(degree(x))))
+haloThreshSamps = haloThreshSamps %>%
+  merge(trueMean, by = "gr") %>%
+  mutate(errMean = mean - trueMean)
+
+# save(haloThreshSamps, file = "haloThreshSampleData.RData")
+
+plot(errMean ~ jitter(th), haloThreshSamps,
+     xlab = "Mean halo degree threshold (jittered)",
+     ylab = "Mean smaple degree - true mean")
+haloThreshloess = loess(errMean ~ th, haloThreshSamps)
+points(thresh, unique(haloThreshloess$fitted), type = 'l', col = 'red')
+
