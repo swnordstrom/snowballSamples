@@ -1,3 +1,6 @@
+library(dplyr)
+library(igraph)
+
 load("10scalefree_n740.RData")
 source("trialGenerators.R")
 
@@ -27,40 +30,63 @@ for (x in 1:10) {
 
 errDiv = bind_rows(mget(grep("errDiv", ls(), value = TRUE)))
 
+allIndivs = bind_rows(mget(grep("indivs", ls(), value = TRUE)))
+allIndivs = allIndivs[with(allIndivs, order(gr,node)),]
+
 biasVar = bind_rows(mget(grep("biasVar", ls(), value = TRUE)))
 biasVar = biasVar[with(biasVar, order(gr,maxL)),]
 
-# save(errDiv, biasVar, file = "data_original10graphs.RData")
+# save(allIndivs, errDiv, biasVar, file = "data_original10graphs.RData")
+load('data_original10graphs.RData')
 
-plot(errMean ~ maxL, biasVar)
+# plot mean in error estimates for all ten networks
+
+plot(errMean ~ maxL, biasVar,
+     xlab = "Steps per snowball",
+     ylab = "Mean smaple degree - true mean")
 abline(h = 0)
 for (j in 1:10) with(biasVar[biasVar$gr %in% j,], lines(maxL, errMean, col = 'gray66'))
 
-plot(sd ~ sqrt(maxL), biasVar)
+# plot standard deviation in mean-degree estimate
 
-# par(mfrow = c(1,1))
+plot(sd ~ maxL, biasVar,
+     xlab = "Steps per snowball", 
+     ylab = "Std. Dev. of mean sample degree")
 
-plot(div ~ kTrue, qerr[qerr$maxL %in% 1,], type = 'l', col = 'red', log = 'x', 
-     ylim = c(-.05, .15), xlab = 'Degree', ylab = 'KLD')
-points(div ~ kTrue, qerr[qerr$maxL %in% 2,], type = 'l', col = 'orange')
-points(div ~ kTrue, qerr[qerr$maxL %in% 4,], type = 'l', col = 'blue')
-points(div ~ kTrue, qerr[qerr$maxL %in% 3,], type = 'l', col = 'green')
+## Plot divergence + loess fit for all ten graphs
+
+colz = c("red", "orange", "green", "blue")
+plot(div ~ kTrue, errDiv,
+     pch = 19, cex = 0.15, col = colz[maxL],
+     log = 'x')
 abline(h = 0)
-legend('topleft', col = c('red', 'orange', 'green', 'blue'),
-       pch = '*', cex = 0.8, legend = paste(1:4, 'steps'))
 
-# maybe show divergence using opaque polygons
-# annoying problem: degrees are different for each graph (ugh!)
-# plot(div ~ kTrue, errDiv[errDiv$maxL %in% 1 & errDiv$gr %in% 1,],
-#      log = 'x', ylim = c(range(errDiv$div)[1], range(errDiv$div)[2]), 
-#      type = 'l', col = 'white')
-# colz = c('red', 'orange', 'green', 'blue')
-# for (i in 1:4) {
-#   for (j in 2:10) {
-#     points(div ~ kTrue, errDiv[errDiv$maxL %in% i & errDiv$gr %in% j,], 
-#            type = 'h', col = colz[i])
-#   }
-# }
+divLo = loess(div ~ kTrue + maxL, errDiv, span = 1)
+prdcDivLo = predict(divLo, expand.grid(maxL = 1:4, kTrue = 1:300))
+for (i in 1:4) points(prdctDivLo[i,], type = 'l', col = colz[i], lwd = 2)
+legend('topleft', cex = 0.5, col = colz, 
+       pch = 19, bty = "n", 
+       legend = paste(1:4, 'step'))
 
+## Summary plot of individual error for all four maxL settings
 
-# with(errDiv[errDiv$ plot(div ~ )
+allIndivs = allIndivs[allIndivs$kTrue > 1,]
+
+aierr = allIndivs %>%
+  group_by(maxL, kTrue) %>%
+  summarise(median = median(err), q25 = quantile(err, .25), q75 = quantile(err, .75))
+
+par(mfrow = c(2,2))
+
+for (i in 1:4) {
+  
+  plot(2, 1, xlim = c(2, max(aierr$kTrue)), ylim = c(min(aierr$q25), 1), type = 'n')
+  with(aierr[aierr$maxL %in% i,], 
+       polygon(x = c(kTrue, rev(kTrue)), y = c(q75, rev(q25)), 
+               col = 'gray88', border = 'gray88'))
+  points(median ~ kTrue, aierr[aierr$maxL %in% i,],
+         type = 'l', lwd = 2)
+    
+}
+
+# yea boy
