@@ -173,3 +173,70 @@ haloThreshold = function(gr, thresh, trialsPer, targ) {
   return(lip)
   
 }
+
+
+haloEdgeSampling = function(gr, thresh, trialsPer, targ) {
+
+  ### This function uses the proportion of realized within-halo edges to decide
+  ### whether to step out or begin another snowball
+  ### A within-halo edge is one with both incident nodes in the halo
+  ### the proportion of realized edges is the number of edges divided by the
+  ### size of the halo (in nodes) choose two
+    
+  # initialize
+  liv = list()
+  grel = as_edgelist(gr)
+  deg.gr = degree(gr)
+  deg.df = data.frame(name = as.numeric(names(deg.gr)), deg = deg.gr)
+  
+  
+  for (i in thresh) {
+    
+    for (trial in 1:trialsPer) {
+      
+      e.l = matrix(nrow = 0, ncol = 2)
+      
+      # randomly select seed node
+      sn = sample(V(gr)$name, 1)
+      # begin first snowball by taking step out from seed
+      e.l = stepOut(grel, e.l, sn)
+      # remove the seed from the halo
+      e.l$halo = e.l$halo[e.l$halo != sn]
+      
+      while (length(unique(array(e.l$g))) < targ) {
+        
+        # calculate number of within-halo edges
+        winedge = sum((apply(grel, 1, function(x) sum(x %in% e.l$halo) == 2)))
+        # output proportion of possible within-halo edges realized
+        p_edge = winedge / choose(length(e.l$halo), 2)
+        
+        if (!is.nan(p_edge) & p_edge < i) {
+          e.l = stepOut(grel, e.l$g, e.l$halo)
+        } else {
+          incompl = merge(deg.df, data.frame(table(e.l$g)),
+                          by.x = 'name', by.y = 'Var1', all = TRUE)
+          # randomly choose a seed node from the set of incompletely-sampled nodes
+          sn = as.numeric(sample(incompl$name[incompl$deg != incompl$Freq |
+                                                is.na(incompl$Freq)], 1))
+          e.l = stepOut(grel, e.l$g, sn)
+          e.l$halo = e.l$halo[e.l$halo != sn]
+        }
+      }
+      
+      # removing nodes to get us to the target size
+      toRm = sample(e.l$halo, length(unique(array(e.l$g))) - targ)
+      e.l$g = e.l$g[!(e.l$g[,1] %in% toRm | e.l$g[,2] %in% toRm),]
+      
+      # degree distribution of the sampled graph
+      deg = table(e.l$g)
+      
+      thIdx = which(thresh == i)
+      liv[[trialsPer*(thIdx-1) + trial]] = list(kSamp = deg, trueDeg = deg.gr[names(deg)])
+      
+    }
+    
+  }
+  
+  return(liv)
+  
+}
