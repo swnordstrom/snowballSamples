@@ -120,7 +120,7 @@ haloThreshVar = haloThreshSamps %>%
   group_by(gr, th) %>%
   summarise(sdInMean = sd(mean))
 
-plot(errMean ~ jitter(th), haloThreshSamps,
+plot(errMean ~ jitter(th), haloThreshSamps, cex = 0.5,
      xlab = "Mean halo degree threshold (jittered)",
      ylab = "Mean sample degree - true mean",
      main = "Bias in sample degree with\n halo-degree threshold")
@@ -133,3 +133,46 @@ plot(sdInMean ~ th, haloThreshVar,
      main = "Variance in sample degree with\n halo-degree threshold")
 for (j in 1:10) with(haloThreshVar[haloThreshVar$gr %in% j,], lines(th, sdInMean, col = 'gray66'))
 
+## within-halo edges as a heurstic
+
+thresh2 = 1:7
+trialsPer = 50
+
+set.seed(7671118)
+
+for (x in 1:10) {
+  
+  assign(paste0("samp",x), haloEdgeSampling(graphs[[x]], thresh2, trialsPer, 150))
+
+  assign(paste0("sampDf",x), data.frame(gr = x, th = rep(thresh2, each = trialsPer),
+                                        mean = sapply(get(paste0("samp",x)),
+                                                      function(x) mean(x$kSamp)),
+                                        sd = sapply(get(paste0("samp",x)),
+                                                    function(x) sd(x$kSamp))))
+  
+}
+
+haloEdgeSamps = bind_rows(mget(grep("sampDf", ls(), value = TRUE)))
+trueMean = data.frame(gr = 1:10, trueMean = sapply(graphs, function(x) mean(degree(x))))
+haloEdgeSamps = haloEdgeSamps %>%
+  merge(trueMean, by = "gr") %>%
+  mutate(errMean = mean - trueMean)
+
+# save(haloEdgeSamps, file = "haloEdgeSampleData.RData")
+
+haloEdgeVar = haloEdgeSamps %>%
+  group_by(gr, th) %>%
+  summarise(sdInMean = sd(mean))
+
+plot(errMean ~ jitter(th), haloEdgeSamps, cex = 0.5,
+     xlab = "Mean halo degree threshold (jittered)",
+     ylab = "Mean sample degree - true mean",
+     main = "Bias in sample degree with\n halo-degree threshold")
+haloEdgeloess = loess(errMean ~ th, haloEdgeSamps, span = 1)
+points(thresh2, unique(haloEdgeloess$fitted), type = 'l', col = 'red')
+
+plot(sdInMean ~ th, haloEdgeVar,
+     xlab = "Mean halo degree threshold",
+     ylab = "Std. dev in mean degree estimate",
+     main = "Variance in sample degree with\n halo-degree threshold")
+for (j in 1:10) with(haloEdgeVar[haloEdgeVar$gr %in% j,], lines(th, sdInMean, col = 'gray66'))
