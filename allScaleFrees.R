@@ -3,6 +3,7 @@ library(igraph)
 
 load("10scalefree_n740.RData")
 source("trialGenerators.R")
+export.dir = "/users/scottnordstrom/documents/homework/rotation 1/presentation/"
 
 set.seed(171872898)
 
@@ -41,17 +42,28 @@ load('data_original10graphs.RData')
 
 # plot mean in error estimates for all ten networks
 
+png(paste0(export.dir,"originalTrialsBias.png"), res = 100, width = 600)
 plot(errMean ~ maxL, biasVar,
      xlab = "Steps per snowball",
-     ylab = "Mean smaple degree - true mean")
+     ylab = "Mean smaple degree - true mean",
+     main = "Bias in mean degree estimation",
+     xaxt = 'n')
 abline(h = 0)
 for (j in 1:10) with(biasVar[biasVar$gr %in% j,], lines(maxL, errMean, col = 'gray66'))
+axis(1, at = 1:4, labels = 1:4)
+dev.off()
 
 # plot standard deviation in mean-degree estimate
 
+png(paste0(export.dir,"originalTrialsVar.png"), res = 100, width = 600)
 plot(sd ~ maxL, biasVar,
      xlab = "Steps per snowball", 
-     ylab = "Std. Dev. of mean sample degree")
+     ylab = "Std. dev. of mean sample degree",
+     main = "Variance in mean\n sample degree error",
+     xaxt = 'n')
+for (j in 1:10) with(biasVar[biasVar$gr %in% j,], lines(maxL, sd, col = 'gray66'))
+axis(1, at = 1:4, labels = 1:4)
+dev.off()
 
 ## Plot divergence + loess fit for all ten graphs
 
